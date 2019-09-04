@@ -11,16 +11,60 @@ defaults: &golang
         root: .
         paths:
           - ./pkg/
+version: 2.1
+executors:
+  golang:
+    docker:
+      - image: circleci/golang:1.12
+commands:
+  build-test-binaries:
+    parameters:
+      GOOS:
+        type: string
+    steps:
+      - checkout
+      - run: |
+          for pkg in $(go list ./...); do
+            BIN=tests/$pkg.test;
+            echo $BIN >> pkglist
+            GOOS=<< parameters.GOOS >> go test -vet=off -o $BIN -c $pkg
+          done
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./tests/
+  build-and-persist-packer-binary:
+    parameters:
+      GOOS:
+        type: string
+    steps:
+      - checkout
+      - run: GOOS=<< parameters.GOOS >> go build -ldflags="-s -w" -o ./pkg/packer_<< parameters.GOOS >>_$(go env GOARCH) .
+      - run: zip ./pkg/packer_<< parameters.GOOS >>_$(go env GOARCH).zip ./pkg/packer_<< parameters.GOOS >>_$(go env GOARCH)
+      - run: rm ./pkg/packer_<< parameters.GOOS >>_$(go env GOARCH)
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./pkg/
 # Golang CircleCI 2.0 configuration file
 #
 # Check https://circleci.com/docs/2.0/language-go/ for more details
-version: 2
 jobs:
-  build:
-    <<: *golang
+  build-test-binaries-linux:
+    executor: golang
     steps:
-      - checkout
-      - run: make ci
+      - build-test-binaries:
+          GOOS: linux
+  build-test-binaries-darwin:
+    executor: golang
+    steps:
+      - build-test-binaries:
+          GOOS: darwin
+  build-test-binaries-windows:
+    executor: golang
+    steps:
+      - build-test-binaries:
+          GOOS: windows
   check-vendor-vs-mod:
     <<: *golang
     steps:
@@ -38,29 +82,35 @@ jobs:
       - checkout
       - run: make generate-check
   build_linux:
-    <<: *golang
-    environment:
-      GOOS: linux
+    executor: golang
+    steps:
+      - build-and-persist-packer-binary:
+          GOOS: linux
   build_windows:
-    <<: *golang
-    environment:
-      GOOS: windows
+    executor: golang
+    steps:
+      - build-and-persist-packer-binary:
+          GOOS: windows
   build_darwin:
-    <<: *golang
-    environment:
-      GOOS: darwin
+    executor: golang
+    steps:
+      - build-and-persist-packer-binary:
+          GOOS: darwin
   build_freebsd:
-    <<: *golang
-    environment:
-      GOOS: freebsd
+    executor: golang
+    steps:
+      - build-and-persist-packer-binary:
+          GOOS: freebsd
   build_solaris:
-    <<: *golang
-    environment:
-      GOOS: solaris
+    executor: golang
+    steps:
+      - build-and-persist-packer-binary:
+          GOOS: solaris
   build_openbsd:
-    <<: *golang
-    environment:
-      GOOS: openbsd
+    executor: golang
+    steps:
+      - build-and-persist-packer-binary:
+          GOOS: openbsd
   store_artifacts:
     <<: *golang
     steps:
@@ -82,7 +132,8 @@ workflows:
   version: 2
   build_and_check_vendor_vs_module:
     jobs:
-      - build
+      - build-test-binaries-linux
+      # - test-macos
       - check-vendor-vs-mod
       - check-fmt
       - check-generate
