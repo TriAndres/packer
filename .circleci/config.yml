@@ -24,15 +24,27 @@ commands:
     steps:
       - checkout
       - run: |
+          set -e
           for pkg in $(go list ./...); do
-            BIN=tests/$pkg.test;
-            echo $BIN >> pkglist
+            BIN=testbins/$pkg.test;
+            echo $BIN >> testbins/pkglist
             GOOS=<< parameters.GOOS >> go test -vet=off -o $BIN -c $pkg
           done
       - persist_to_workspace:
           root: .
           paths:
-            - ./tests/
+            - ./testbins/
+  run-test-binaries:
+    steps:
+      - attach_workspace:
+          at: .
+      - run: |
+          set -e
+          for pkg in $(cat pkglist); do 
+            echo ${pkg##tests/}
+            ./$pkg -test.v
+          done
+
   build-and-persist-packer-binary:
     parameters:
       GOOS:
@@ -55,6 +67,10 @@ jobs:
     steps:
       - build-test-binaries:
           GOOS: linux
+  build-test-binaries-linux:
+    executor: golang
+    steps:
+      - run-test-binaries
   build-test-binaries-darwin:
     executor: golang
     steps:
@@ -133,7 +149,10 @@ workflows:
   build_and_check_vendor_vs_module:
     jobs:
       - build-test-binaries-linux
-      # - test-macos
+      - run-test-binaries-linux:
+          requires: build-test-binaries-linux
+      - build-test-binaries-darwin
+      - build-test-binaries-windows
       - check-vendor-vs-mod
       - check-fmt
       - check-generate
