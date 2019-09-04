@@ -77,6 +77,10 @@ jobs:
     steps:
       - build-test-binaries:
           GOOS: darwin
+  run-test-binaries-darwin:
+    executor: golang
+    steps:
+      - run-test-binaries
   build-test-binaries-windows:
     executor: golang
     steps:
@@ -154,6 +158,9 @@ workflows:
           requires: 
             - build-test-binaries-linux
       - build-test-binaries-darwin
+      - run-test-binaries-darwin:
+          requires: 
+            - build-test-binaries-darwin
       - build-test-binaries-windows
       - check-vendor-vs-mod
       - check-fmt
