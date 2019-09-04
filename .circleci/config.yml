@@ -25,6 +25,7 @@ commands:
       - checkout
       - run: |
           set -e
+          mkdir testbins
           for pkg in $(go list ./...); do
             BIN=testbins/$pkg.test;
             echo $BIN >> testbins/pkglist
