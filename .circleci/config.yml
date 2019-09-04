@@ -67,7 +67,7 @@ jobs:
     steps:
       - build-test-binaries:
           GOOS: linux
-  build-test-binaries-linux:
+  run-test-binaries-linux:
     executor: golang
     steps:
       - run-test-binaries
@@ -150,7 +150,8 @@ workflows:
     jobs:
       - build-test-binaries-linux
       - run-test-binaries-linux:
-          requires: build-test-binaries-linux
+          requires: 
+            - build-test-binaries-linux
       - build-test-binaries-darwin
       - build-test-binaries-windows
       - check-vendor-vs-mod
